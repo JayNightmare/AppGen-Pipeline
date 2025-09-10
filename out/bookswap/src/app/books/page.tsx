@@ -1,2 +1,0 @@
-export default async function Page(){ const data = await getData(); return (<div><h1>book List</h1><ul>{data.map((i:any)=> <li key={i.id}>{i.id}</li>)}</ul></div>); }
-async function getData() { return []; }

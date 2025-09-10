@@ -9,7 +9,7 @@ export function generateListPage(entityName: string, isSSR: boolean) {
         ? "async function getData() { return []; }"
         : 'export const dynamic = "error"; export const revalidate = 0; const data: any[] = [];';
     return `export default async function Page(){ ${
-        isSSR ? "const data = await getData();" : ""
+        isSSR ? "const data = await getData();" : "const data: any[] = [];"
     } return (<div><h1>${entityName} List</h1><ul>{${
         isSSR ? "data" : "data"
     }.map((i:any)=> <li key={i.id}>{i.id}</li>)}</ul></div>); }\n${

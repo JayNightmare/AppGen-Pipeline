@@ -1,1 +1,0 @@
-export default async function Page({ params }: { params: { id: string } }){ return (<div><h1>book Detail</h1><p>ID: {params.id}</p></div>); }

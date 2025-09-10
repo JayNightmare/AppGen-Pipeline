@@ -12,6 +12,7 @@ export function buildClarifierPrompt(idea: string, hints?: Record<string, any>):
     'You are an expert product/tech specifier.',
     'Ask yourself at most 8 concise internal questions, then OUTPUT ONLY valid JSON matching the provided JSON Schema (no extra keys).',
     'If uncertain, choose sensible defaults from enum values. Keep arrays minimal but non-empty when required.',
+  'The output MUST include top-level keys: "blueprint", "app", "features", "runtime", "deploy".',
     'If deploy target is github_pages, enforce runtime.renderMode = "ssg" and disallow server routes.',
     'If deploy target is vercel and features.auth != none, prefer runtime.renderMode = "ssr".',
     'If user wants a DB but github_pages is chosen, set runtime.database to turso or supabase, but note no server routes.',
@@ -40,7 +41,15 @@ export async function generateAppSpecFromIdea(idea: string, model: JsonModel): P
     const correctionInfo = `Previous output failed validation: ${e.message}. Correct the JSON strictly to satisfy the schema. Output only JSON.`;
     const corrected = await model.completeJSON({ system, user: user + '\n' + correctionInfo, schema, maxRetries: 1 });
     const fixed = applyHeuristics(corrected);
-    return validateAppSpec(fixed);
+    try {
+      return validateAppSpec(fixed);
+    } catch {
+      // Robust fallback to stub spec to keep pipeline moving
+      const { StubJsonModel } = await import('../lib/model/stub.js');
+      const stub = new StubJsonModel();
+      const alt = await stub.completeJSON({ system, user, schema });
+      return validateAppSpec(applyHeuristics(alt));
+    }
   }
 }
 

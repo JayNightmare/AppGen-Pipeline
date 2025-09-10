@@ -35,14 +35,41 @@ export class OpenAIJsonModel implements JsonModel {
                 { role: "user", content: user },
             ];
             try {
-                const resp = await this.client.chat.completions.create({
-                    model: this.model,
-                    messages,
-                    response_format: { type: "json_object" },
-                    temperature: 0,
-                });
-                const txt = resp.choices?.[0]?.message?.content || "{}";
-                return parseJsonLoose(txt);
+                const hasSchema = !!schema && typeof schema === "object";
+                try {
+                    const resp = await this.client.chat.completions.create({
+                        model: this.model,
+                        messages,
+                        response_format: hasSchema
+                            ? {
+                                  type: "json_schema",
+                                  json_schema: {
+                                      name: "AppSpec",
+                                      schema,
+                                      strict: true,
+                                  },
+                              }
+                            : { type: "json_object" },
+                        max_completion_tokens: 1000,
+                    });
+                    const txt = resp.choices?.[0]?.message?.content || "{}";
+                    return parseJsonLoose(txt);
+                } catch (e: any) {
+                    if (hasSchema) {
+                        const resp2 = await this.client.chat.completions.create(
+                            {
+                                model: this.model,
+                                messages,
+                                response_format: { type: "json_object" },
+                                max_completion_tokens: 1000,
+                            }
+                        );
+                        const txt2 =
+                            resp2.choices?.[0]?.message?.content || "{}";
+                        return parseJsonLoose(txt2);
+                    }
+                    throw e;
+                }
             } catch (err: any) {
                 lastError = err;
             }
