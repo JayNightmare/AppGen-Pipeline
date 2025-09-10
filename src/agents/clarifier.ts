@@ -31,24 +31,30 @@ export function buildClarifierPrompt(idea: string, hints?: Record<string, any>):
   return { system, user };
 }
 
-export async function generateAppSpecFromIdea(idea: string, model: JsonModel): Promise<AppSpec> {
-  const { system, user } = buildClarifierPrompt(idea);
+export async function generateAppSpecFromIdea(idea: string, model: JsonModel, hints?: Record<string, any>): Promise<AppSpec> {
+  const { system, user } = buildClarifierPrompt(idea, hints);
   let draft: any = await model.completeJSON({ system, user, schema });
+  // If the response is wrapped in { file_path, file_name, code }, extract code
+  if (draft && typeof draft === 'object' && draft.code) {
+    draft = draft.code;
+  }
   draft = applyHeuristics(draft);
+  console.log("[DEBUG] Initial AppSpec draft:", JSON.stringify(draft, null, 2));
   try {
     return validateAppSpec(draft);
   } catch (e: any) {
+    console.warn("[DEBUG] Initial AppSpec validation failed:", e.message);
     const correctionInfo = `Previous output failed validation: ${e.message}. Correct the JSON strictly to satisfy the schema. Output only JSON.`;
-    const corrected = await model.completeJSON({ system, user: user + '\n' + correctionInfo, schema, maxRetries: 1 });
+    let corrected = await model.completeJSON({ system, user: user + '\n' + correctionInfo, schema, maxRetries: 1 });
+    if (corrected && typeof corrected === 'object' && corrected.code) {
+      corrected = corrected.code;
+    }
     const fixed = applyHeuristics(corrected);
+    console.log("[DEBUG] Corrected AppSpec draft:", JSON.stringify(fixed, null, 2));
     try {
       return validateAppSpec(fixed);
-    } catch {
-      // Robust fallback to stub spec to keep pipeline moving
-      const { StubJsonModel } = await import('../lib/model/stub.js');
-      const stub = new StubJsonModel();
-      const alt = await stub.completeJSON({ system, user, schema });
-      return validateAppSpec(applyHeuristics(alt));
+    } catch (err) {
+      throw new Error("AppSpec validation failed after correction. OpenAI output is invalid.");
     }
   }
 }

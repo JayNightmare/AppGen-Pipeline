@@ -19,11 +19,16 @@ export async function runPipeline(params: {
     outDir: string;
     deployHint?: "vercel" | "github_pages";
     model?: JsonModel;
+    clarifierHints?: Record<string, any>;
 }) {
     const model = params.model || (await getModel());
     let spec: AppSpec;
     if (params.idea) {
-        spec = await generateAppSpecFromIdea(params.idea, model);
+        spec = await generateAppSpecFromIdea(
+            params.idea,
+            model,
+            params.clarifierHints
+        );
     } else if (params.specPath) {
         const raw = JSON.parse(await readFile(params.specPath, "utf8"));
         spec = validateAppSpec(raw);

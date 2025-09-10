@@ -4,23 +4,41 @@
  */
 import { AppSpec } from "../../types/appspec.js";
 import {
-    writeFromTemplate,
     writeTextFile,
     ensureDir,
+    writeFromTemplate,
 } from "../fs/writeFiles.js";
+import { getModel } from "../../lib/model/index.js";
 import { prismaFromEntities } from "./prismaFromEntities.js";
-import { generateListPage, generateDetailPage } from "./pages.js";
 import { scaffoldAuth } from "./auth.js";
 import { writeVercelConfig, writeGitHubPagesWorkflow } from "./deploy.js";
-import { join } from "path";
+import { join, dirname } from "path";
 
 export async function scaffoldWebApp(spec: AppSpec, plan: any, outDir: string) {
-    const tokens = {
-        __APP_NAME__: spec.app.name,
-        __SUBHEAD__: spec.app.purpose,
-    };
+    const model = await getModel();
     for (const f of plan.files) {
-        await writeFromTemplate(join(outDir, f.path), f.template, tokens);
+        // Use static template for binary assets only
+        if (f.path.endsWith(".ico")) {
+            await writeFromTemplate(join(outDir, f.path), f.template, {});
+            continue;
+        }
+        // Build prompt for AI code generation
+        const prompt = buildFilePrompt(spec, f);
+        const system = `You are an expert Next.js/React developer. Generate a complete, production-ready code file for the following requirements. Respond ONLY with a valid JSON object containing: file_path, file_name, and code for the file.`;
+        const user = prompt;
+        let aiResp;
+        try {
+            aiResp = await model.completeJSON({ system, user });
+        } catch (err) {
+            aiResp = {
+                file_path: f.path,
+                file_name: f.path.split("/").pop(),
+                code: `// AI generation failed: ${err}\n`,
+            };
+        }
+        const { file_path, code } = cleanAIFileResponse(aiResp, f.path);
+        await ensureDir(dirname(join(outDir, file_path)));
+        await writeTextFile(join(outDir, file_path), code);
     }
     if (plan.needsDB) {
         const schema = prismaFromEntities(spec);
@@ -45,56 +63,49 @@ export async function scaffoldWebApp(spec: AppSpec, plan: any, outDir: string) {
     if (spec.features.auth === "email_magic")
         envLines.push("# RESEND_API_KEY=");
     await writeTextFile(join(outDir, ".env.example"), envLines.join("\n"));
-
-    const pages = spec.features.pages as any[];
-    for (const p of pages) {
-        const pathStr = typeof p === "string" ? p : p.path;
-        if (!pathStr || pathStr === "/") continue;
-        const parts = pathStr.split("/").filter(Boolean);
-        const base = join(outDir, "src", "app", ...parts);
-        const isDetail = parts[parts.length - 1]?.startsWith("[");
-        const hintedEntity =
-            typeof p === "object" && p.entity ? p.entity : undefined;
-        const collection = hintedEntity
-            ? hintedEntity.toLowerCase().endsWith("s")
-                ? hintedEntity.toLowerCase()
-                : hintedEntity.toLowerCase() + "s"
-            : parts[0] || "items";
-        const singular = hintedEntity
-            ? hintedEntity.toLowerCase().replace(/s$/, "")
-            : collection.replace(/s$/, "");
-        // compute relative path from this page dir to src (for imports)
-        // from src/app/... to src => '../' repeated segments after src (app + parts)
-        const segmentsAfterSrc = 1 + parts.length; // 'app' + parts
-        const relToLib = Array(segmentsAfterSrc).fill("..").join("/") || ".";
-        const src = isDetail
-            ? generateDetailPage({
-                  collection,
-                  singular,
-                  isSSR: plan.isSSR,
-                  relToLib,
-              })
-            : generateListPage({
-                  collection,
-                  singular,
-                  isSSR: plan.isSSR,
-                  relToLib,
-              });
-        await ensureDir(base);
-        await writeTextFile(join(base, "page.tsx"), src);
-    }
-
     if (spec.deploy.target === "vercel") await writeVercelConfig(outDir);
     if (spec.deploy.target === "github_pages")
         await writeGitHubPagesWorkflow(outDir);
-
     await scaffoldAuth(spec.features.auth, plan.isSSR, outDir);
-
     const pkg = basePackageJson(spec, plan);
     await writeTextFile(
         join(outDir, "package.json"),
         JSON.stringify(pkg, null, 2)
     );
+}
+
+function buildFilePrompt(spec: AppSpec, file: any): string {
+    let desc = `App name: ${spec.app.name}\nPurpose: ${spec.app.purpose}\n`;
+    if (file.path.includes("layout.tsx")) {
+        desc += `Create a root layout for the app, including a navbar and banner if specified. Use modern, clean design.\n`;
+    }
+    if (file.path.includes("(marketing)/page.tsx")) {
+        desc += `Create a marketing landing page for the app. Highlight features: ${spec.features.pages
+            ?.map((p: any) => p.sections?.map((s: any) => s.kind).join(", "))
+            .join(", ")}.\n`;
+    }
+    if (file.path.includes("(app)/layout.tsx")) {
+        desc += `Create a layout for the main app pages.\n`;
+    }
+    if (file.path.includes("Button.tsx")) {
+        desc += `Create a reusable UI Button component.\n`;
+    }
+    if (file.path.includes("db.ts")) {
+        desc += `Create a database utility file.\n`;
+    }
+    if (file.path.includes("seed.ts")) {
+        desc += `Create a Prisma seed script for the app entities.\n`;
+    }
+    if (file.path.includes("package.json")) {
+        desc += `Create a package.json for a Next.js app with the required dependencies.\n`;
+    }
+    // Add more file-specific instructions as needed
+    desc += `User requested features: ${
+        spec.features?.uploads ? "uploads, " : ""
+    }${spec.features?.emails ? "emails, " : ""}${
+        spec.features?.payments ? "payments, " : ""
+    }${spec.features?.integrations?.map((i: any) => i.provider).join(", ")}.\n`;
+    return desc;
 }
 
 function basePackageJson(spec: AppSpec, plan: any) {
@@ -157,8 +168,7 @@ function buildFixtures(spec: AppSpec) {
             for (const f of ent.fields) {
                 if (f.name === "title") row.title = `${ent.name} ${i}`;
                 else if (f.name === "author") row.author = `Author ${i}`;
-                else if (f.name === "condition")
-                    row.condition = ["new", "good", "fair"][i % 3];
+                else if (f.name === "condition") row[f.name] = `Condition ${i}`;
                 else if (f.type === "int") row[f.name] = i;
                 else if (f.type === "float") row[f.name] = i + 0.5;
                 else if (f.type === "bool") row[f.name] = i % 2 === 0;
@@ -179,4 +189,27 @@ function buildFixtures(spec: AppSpec) {
         out[coll] = rows;
     }
     return out;
+}
+// Cleans and standardizes the AI response for file generation
+function cleanAIFileResponse(resp: any, fallbackPath: string) {
+    // If response is a string, try to parse as JSON
+    if (typeof resp === "string") {
+        try {
+            resp = JSON.parse(resp);
+        } catch {
+            // fallback: treat as code only
+            return { file_path: fallbackPath, code: resp };
+        }
+    }
+    // If response is an object with code
+    if (resp && typeof resp === "object") {
+        const file_path = resp.file_path || fallbackPath;
+        const code = resp.code || resp.content || "";
+        return { file_path, code };
+    }
+    // fallback: treat as code only
+    return {
+        file_path: fallbackPath,
+        code: typeof resp === "string" ? resp : "",
+    };
 }

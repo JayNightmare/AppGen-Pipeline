@@ -32,7 +32,10 @@ export class OpenAIJsonModel implements JsonModel {
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             const messages: any[] = [
                 { role: "system", content: system },
-                { role: "user", content: user },
+                {
+                    role: "user",
+                    content: `Respond ONLY with a valid JSON object. When creating the JSON object, format the object into 3 separate parts: file_path (the path that file will be saved to), file_name (the name of the file), and code (the generated code). ${user}`,
+                },
             ];
             try {
                 const hasSchema = !!schema && typeof schema === "object";
@@ -50,7 +53,6 @@ export class OpenAIJsonModel implements JsonModel {
                                   },
                               }
                             : { type: "json_object" },
-                        max_completion_tokens: 1000,
                     });
                     const txt = resp.choices?.[0]?.message?.content || "{}";
                     return parseJsonLoose(txt);
@@ -61,7 +63,6 @@ export class OpenAIJsonModel implements JsonModel {
                                 model: this.model,
                                 messages,
                                 response_format: { type: "json_object" },
-                                max_completion_tokens: 1000,
                             }
                         );
                         const txt2 =
