@@ -40,7 +40,48 @@ export const EntitySchema = z.object({
 
 export const FeaturesSchema = z.object({
     auth: z.enum(["none", "email_magic", "google_oauth"]),
-    pages: z.array(z.string().regex(/^\//)).min(1),
+    pages: z
+        .array(
+            z.union([
+                z.string().min(1),
+                z.object({
+                    path: z.string().min(1),
+                    purpose: z.enum([
+                        "landing",
+                        "list",
+                        "detail",
+                        "form",
+                        "dashboard",
+                        "about",
+                        "contact",
+                        "faq",
+                    ]),
+                    entity: z.string().optional(),
+                    sections: z
+                        .array(
+                            z.object({
+                                kind: z.enum([
+                                    "hero",
+                                    "features",
+                                    "faq",
+                                    "list",
+                                    "detail",
+                                    "form",
+                                    "contact",
+                                    "pricing",
+                                ]),
+                                headline: z.string().min(18).optional(),
+                                subhead: z.string().min(30).optional(),
+                                bullets: z.array(z.string()).min(3).optional(),
+                                fields: z.array(z.string()).optional(),
+                            })
+                        )
+                        .min(1)
+                        .optional(),
+                }),
+            ])
+        )
+        .min(1),
     uploads: z.boolean().optional(),
     emails: z.boolean().optional(),
     payments: z.boolean().optional(),

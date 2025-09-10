@@ -11,6 +11,7 @@ import { planFromSpec } from "./steps/plan.js";
 import { scaffoldWebApp } from "./steps/scaffold-web/index.js";
 import { getModel, JsonModel } from "./lib/model/index.js";
 import { spawn } from "child_process";
+import { ensureMinimumSections } from "./lib/design.js";
 
 export async function runPipeline(params: {
     idea?: string;
@@ -37,6 +38,7 @@ export async function runPipeline(params: {
     }
 
     if (spec.blueprint === "web_app") {
+        spec = ensureMinimumSections(spec);
         const plan = planFromSpec(spec);
         await scaffoldWebApp(spec, plan, params.outDir);
         await installAndBuild(params.outDir);

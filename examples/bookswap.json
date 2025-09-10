@@ -3,28 +3,27 @@
   "app": {
     "name": "BookSwap",
     "purpose": "Peer-to-peer book exchange",
-    "roles": ["user"],
+    "roles": ["guest","user"],
     "entities": [
-      {
-        "name": "Book",
-        "fields": [
-          { "name": "title", "type": "string" },
-          { "name": "author", "type": "string" },
-          { "name": "condition", "type": "enum", "enumValues": ["new","good","fair"] }
-        ]
-      }
+      { "name": "Book", "fields": [
+        { "name": "title", "type": "string" },
+        { "name": "author", "type": "string" },
+        { "name": "condition", "type": "enum", "enumValues": ["new","good","fair"] }
+      ]}
     ]
   },
   "features": {
     "auth": "none",
-    "pages": ["/", "/books", "/books/[id]"]
+    "pages": [
+      { "path": "/", "purpose": "landing", "sections": [
+        { "kind": "hero", "headline": "Swap books, meet readers", "subhead": "List a book you’ve finished, request the one you want, and trade locally with zero fees." },
+        { "kind": "features", "bullets": ["Post in seconds","Search by author/title","Message to arrange pickup"] },
+        { "kind": "faq", "bullets": ["Is it free? Yes.","How do trades work? Meet up or mail.","Any limits? Keep it legal and kind."] }
+      ]},
+      { "path": "/books", "purpose": "list", "entity": "Book", "sections": [ { "kind": "list" } ] },
+      { "path": "/books/[id]", "purpose": "detail", "entity": "Book", "sections": [ { "kind": "detail" } ] }
+    ]
   },
-  "runtime": {
-    "renderMode": "ssr",
-    "database": "none"
-  },
-  "deploy": {
-    "target": "vercel",
-    "domain": null
-  }
+  "runtime": { "renderMode": "ssr", "database": "none" },
+  "deploy": { "target": "vercel", "domain": null }
 }

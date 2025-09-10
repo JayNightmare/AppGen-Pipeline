@@ -68,8 +68,32 @@
         "auth": {"type": "string", "enum": ["none", "email_magic", "google_oauth"]},
         "pages": {
           "type": "array",
-          "items": {"type": "string", "pattern": "^/"},
-          "minItems": 1
+          "items": {
+            "type": "object",
+            "required": ["path", "purpose"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "purpose": { "enum": ["landing","list","detail","form","dashboard","about","contact","faq"] },
+              "entity": { "type": "string" },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind"],
+                  "properties": {
+                    "kind": { "enum": ["hero","features","faq","list","detail","form","contact","pricing"] },
+                    "headline": { "type": "string", "minLength": 18 },
+                    "subhead": { "type": "string", "minLength": 30 },
+                    "bullets": { "type": "array", "items": { "type": "string" }, "minItems": 3 },
+                    "fields": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "additionalProperties": false
+                },
+                "minItems": 1
+              }
+            }
+          }
         },
         "uploads": {"type": "boolean"},
         "emails": {"type": "boolean"},
