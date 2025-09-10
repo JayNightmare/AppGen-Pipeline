@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/appspec.schema.json",
+  "title": "AppSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["blueprint", "app", "features", "runtime", "deploy"],
+  "properties": {
+    "blueprint": {
+      "type": "string",
+      "enum": ["web_app", "electron_app"]
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "purpose", "roles", "entities"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1},
+        "roles": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "minItems": 1
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "fields"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "type"],
+                  "properties": {
+                    "name": {"type": "string", "minLength": 1},
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "string","text","int","float","bool","date","datetime","enum","json"
+                      ]
+                    },
+                    "enumValues": {
+                      "type": "array",
+                      "items": {"type": "string"},
+                      "minItems": 1
+                    },
+                    "optional": {"type": "boolean"}
+                  }
+                },
+                "minItems": 0
+              }
+            }
+          },
+          "minItems": 0
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["auth", "pages"],
+      "properties": {
+        "auth": {"type": "string", "enum": ["none", "email_magic", "google_oauth"]},
+        "pages": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^/"},
+          "minItems": 1
+        },
+        "uploads": {"type": "boolean"},
+        "emails": {"type": "boolean"},
+        "payments": {"type": "boolean"},
+        "integrations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider"],
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["stripe", "resend", "supabase", "custom_api"]
+              },
+              "name": {"type": "string"},
+              "config": {"type": "object"}
+            }
+          },
+          "minItems": 0
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["renderMode", "database"],
+      "properties": {
+        "renderMode": {"type": "string", "enum": ["ssg", "ssr"]},
+        "database": {"type": "string", "enum": ["none", "neon", "turso", "supabase"]}
+      }
+    },
+    "deploy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target"],
+      "properties": {
+        "target": {"type": "string", "enum": ["vercel", "github_pages"]},
+        "domain": {"type": ["string", "null"], "minLength": 1}
+      }
+    }
+  }
+}

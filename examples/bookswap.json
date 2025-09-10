@@ -1,0 +1,30 @@
+{
+  "blueprint": "web_app",
+  "app": {
+    "name": "BookSwap",
+    "purpose": "Peer-to-peer book exchange",
+    "roles": ["user"],
+    "entities": [
+      {
+        "name": "Book",
+        "fields": [
+          { "name": "title", "type": "string" },
+          { "name": "author", "type": "string" },
+          { "name": "condition", "type": "enum", "enumValues": ["new","good","fair"] }
+        ]
+      }
+    ]
+  },
+  "features": {
+    "auth": "none",
+    "pages": ["/", "/books", "/books/[id]"]
+  },
+  "runtime": {
+    "renderMode": "ssr",
+    "database": "none"
+  },
+  "deploy": {
+    "target": "vercel",
+    "domain": null
+  }
+}

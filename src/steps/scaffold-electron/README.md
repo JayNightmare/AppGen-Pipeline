@@ -1,0 +1,1 @@
+Planned Electron stack: Electron + Vite + React + TypeScript with better-sqlite3 for local storage. Clear IPC boundaries between main and renderer via a typed preload. Packaging via electron-builder for cross-platform installers. No scaffolding yet; placeholder only in current pipeline.
